@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -14,9 +15,88 @@ import (
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 )
 
+func generateFloatVector(num, dim int) [][]float32 {
+	r := make([][]float32, 0, num)
+	for i := 0; i < num; i++ {
+		v := make([]float32, 0, dim)
+		for j := 0; j < dim; j++ {
+			v = append(v, rand.Float32())
+		}
+		r = append(r, v)
+	}
+	return r
+}
+
+func for1m(c client.Client) {
+	vectorss := generateFloatVector(10, 128)
+
+	sp1, err := entity.NewIndexIvfSQ8SearchParam(10)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, vec := range vectorss {
+		start := time.Now()
+		rspp, err := c.Search(context.Background(), "ann_1m_sq8",
+			[]string{}, "", []string{}, []entity.Vector{entity.FloatVector(vec)},
+			"embedding", entity.L2, 10000, sp1,
+		)
+
+		if err != nil {
+			log.Fatal("failed to search collection:", err.Error())
+		}
+		log.Println("search with index time elapsed:", time.Since(start).Milliseconds(), len(rspp))
+	}
+}
+
+func String2Int(strArr []float64) string {
+	res := ""
+
+	for _, val := range strArr {
+		res += fmt.Sprintf("%v,", val)
+	}
+
+	return res
+}
+func forMovie(c client.Client) {
+	testVectorDim := 128
+	vectorss := generateFloatVector(1, testVectorDim)
+	for _, vec := range vectorss {
+		start := time.Now()
+
+		vector := entity.FloatVector(vec)
+		sp, _ := entity.NewIndexFlatSearchParam(0)
+		sr, err := c.Search(context.Background(), "gosdk_index_example", []string{}, "Year > 1990", []string{"ID"}, []entity.Vector{vector}, "Vector",
+			entity.L2, 10, sp)
+		if err != nil {
+			log.Fatal("fail to search collection:", err.Error())
+		}
+		if err != nil {
+			log.Fatal("fail to search collection:", err.Error())
+		}
+		log.Println("search with index time elapsed:", time.Since(start), len(sr))
+	}
+}
+
+func insert(c client.Client, collectionName string, uid, momentId int64, vectors []float32, version string) error {
+	uIdC := entity.NewColumnInt64("uid", []int64{uid})
+	momentIdC := entity.NewColumnInt64("moment_id", []int64{momentId})
+
+	//versionC := entity.NewColumnString("version", []string{version})
+	vectorC := entity.NewColumnFloatVector("embedding", len(vectors), [][]float32{vectors})
+	updateC := entity.NewColumnInt64("update_time", []int64{time.Now().Unix()})
+
+	// insert into default partition
+	_, err := c.Insert(context.Background(), collectionName, "", momentIdC, vectorC, uIdC, updateC)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	// Milvus instance proxy address, may verify in your env/settings
-	milvusAddr := `localhost:19530`
+	milvusAddr := `milvus.venus-dev.qingteng-inc.com:9081`
 
 	// setup context for client creation, use 2 seconds here
 	ctx := context.Background()
@@ -30,6 +110,9 @@ func main() {
 	}
 	// in a main func, remember to close the client
 	defer c.Close()
+
+	for1m(c)
+	return
 
 	// here is the collection name we use in this example
 	collectionName := `gosdk_index_example`
@@ -46,7 +129,7 @@ func main() {
 	// define collection schema, see film.csv
 	schema := &entity.Schema{
 		CollectionName: collectionName,
-		Description:    "this is the example collection for inser and search",
+		Description:    "this is the example collection for insert and search",
 		AutoID:         false,
 		Fields: []*entity.Field{
 			{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -14,11 +15,9 @@ import (
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 )
 
-func main() {
-	// Milvus instance proxy address, may verify in your env/settings
-	milvusAddr := `localhost:19530`
+func NewClient() client.Client {
+	milvusAddr := `106.14.171.244:19530`
 
-	// setup context for client creation, use 2 seconds here
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
@@ -28,7 +27,24 @@ func main() {
 		// handling error and exit, to make example simple here
 		log.Fatal("failed to connect to milvus:", err.Error())
 	}
-	// in a main func, remember to close the client
+	return c
+}
+
+func main() {
+
+	files, _ := ioutil.ReadDir("./")
+	for _, f := range files {
+		fmt.Println(f.Name())
+		insertMoment(f.Name())
+	}
+	return
+
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	c := NewClient()
+
 	defer c.Close()
 
 	// here is the collection name we use in this example
@@ -40,7 +56,7 @@ func main() {
 	}
 	if has {
 		// collection with same name exist, clean up mess
-		_ = c.DropCollection(ctx, collectionName)
+		//_ = c.DropCollection(ctx, collectionName)
 	}
 
 	// define collection schema, see film.csv
@@ -71,10 +87,11 @@ func main() {
 		},
 	}
 
+	log.Println(schema)
 	err = c.CreateCollection(ctx, schema, 1) // only 1 shard
-	if err != nil {
-		log.Fatal("failed to create collection:", err.Error())
-	}
+	//if err != nil {
+	//	log.Fatal("failed to create collection:", err.Error())
+	//}
 
 	films, err := loadFilmCSV()
 	if err != nil {
@@ -151,7 +168,98 @@ func main() {
 	}
 
 	// clean up
-	_ = c.DropCollection(ctx, collectionName)
+	//_ = c.DropCollection(ctx, collectionName)
+}
+
+// 	schema := &entity.Schema{
+//		CollectionName: collectionName,
+//		Description:    "this is the example collection for inser and search",
+//		AutoID:         false,
+//		Fields: []*entity.Field{
+//			{
+//				Name:       "moment_id",
+//				DataType:   entity.FieldTypeInt64, // int64 only for now
+//				PrimaryKey: true,
+//				AutoID:     false,
+//			},
+//			{
+//				Name:       "uid",
+//				DataType:   entity.FieldTypeInt64,
+//				PrimaryKey: false,
+//				AutoID:     false,
+//			},
+//			{
+//				Name:     "embedding",
+//				DataType: entity.FieldTypeFloatVector,
+//				TypeParams: map[string]string{
+//					entity.TYPE_PARAM_DIM: "768",
+//				},
+//			},
+//			{
+//				Name:       "update_time",
+//				DataType:   entity.FieldTypeInt64,
+//				PrimaryKey: false,
+//				AutoID:     false,
+//			},
+//		},
+//	}
+
+func insertMoment(file string) {
+	// Milvus instance proxy address, may verify in your env/settings
+	milvusAddr := `106.14.171.244:19530`
+
+	moments, err := loadMomentTSV(file)
+	if err != nil {
+		log.Fatal("failed to load film data csv:", err.Error())
+	}
+
+	// setup context for client creation, use 2 seconds here
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cancel()
+
+	c, err := client.NewGrpcClient(ctx, milvusAddr)
+	if err != nil {
+		// handling error and exit, to make example simple here
+		log.Fatal("failed to connect to milvus:", err.Error())
+	}
+	// in a main func, remember to close the client
+	defer c.Close()
+
+	// here is the collection name we use in this example
+	collectionName := `moment`
+
+	// row-base covert to column-base
+	momentIds := make([]int64, 0, len(moments))
+	uids := make([]int64, 0, len(moments))
+	vectors := make([][]float32, 0, len(moments))
+	updateTime := make([]int64, 0, len(moments))
+
+	for idx, film := range moments {
+		momentIds = append(momentIds, film.MomentId)
+		//idTitle[film.ID] = film.
+		uids = append(uids, film.Uid)
+		updateTime = append(updateTime, time.Now().Unix())
+		vectors = append(vectors, moments[idx].Embedding[:]) // prevent same vector
+	}
+	momentIdColumn := entity.NewColumnInt64("moment_id", momentIds)
+	uidColumn := entity.NewColumnInt64("uid", uids)
+	vectorColumn := entity.NewColumnFloatVector("embedding", 768, vectors)
+	updateColumn := entity.NewColumnInt64("update_time", updateTime)
+
+	// insert into default partition
+	_, err = c.Insert(ctx, collectionName, "", momentIdColumn, uidColumn, vectorColumn, updateColumn)
+	if err != nil {
+		log.Fatal("failed to insert moments data:", err.Error())
+	}
+	log.Println("insert completed")
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
+	defer cancel()
+	err = c.Flush(ctx, collectionName, false)
+	if err != nil {
+		log.Fatal("failed to flush collection:", err.Error())
+	}
+	log.Println("flush completed")
 }
 
 type film struct {
@@ -159,6 +267,14 @@ type film struct {
 	Title  string
 	Year   int32
 	Vector [8]float32 // fix length array
+}
+
+type moment struct {
+	Uid        int64
+	MomentId   int64
+	Embedding  []float32
+	UpdateTime int64
+	Version    int64
 }
 
 func loadFilmCSV() ([]film, error) {

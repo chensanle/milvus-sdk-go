@@ -221,6 +221,116 @@ func (c *grpcClient) DeleteByPks(ctx context.Context, collName string, partition
 	return nil
 }
 
+//func (c *grpcClient) FastSearch(ctx context.Context, collName string, partitions []string,
+//	expr string, outputFields []string, vector []entity.Vector, vectorField string, metricType entity.MetricType, topK int, sp entity.SearchParam) ([]SearchResult, error) {
+//
+//	if c.service == nil {
+//		return []SearchResult{}, ErrClientNotReady
+//	}
+//
+//	// TODO maybe add expr analysis?
+//	coll, err := c.DescribeCollection(ctx, collName)
+//	if err != nil {
+//		return nil, err
+//	}
+//	if coll.Schema.CollectionName == "" {
+//		coll.Schema.CollectionName = collName
+//	}
+//	mNameField := make(map[string]*entity.Field)
+//	for _, field := range coll.Schema.Fields {
+//		mNameField[field.Name] = field
+//	}
+//	for _, outField := range outputFields {
+//		_, has := mNameField[outField]
+//		if !has {
+//			return nil, fmt.Errorf("field %s does not exist in collection %s", outField, collName)
+//		}
+//	}
+//	vfDef, has := mNameField[vectorField]
+//	if !has {
+//		return nil, fmt.Errorf("vector field %s does not exist in collection %s", vectorField, collName)
+//	}
+//	dimStr := vfDef.TypeParams[entity.TYPE_PARAM_DIM]
+//	for _, vector := range vectors {
+//		if fmt.Sprintf("%d", vector.Dim()) != dimStr {
+//			return nil, fmt.Errorf("vector %s has dim of %s while found search vector with dim %d", vectorField,
+//				dimStr, vector.Dim())
+//		}
+//	}
+//	switch vfDef.DataType {
+//	case entity.FieldTypeFloatVector:
+//		if metricType != entity.IP && metricType != entity.L2 {
+//			return nil, fmt.Errorf("Float vector does not support metric type %s", metricType)
+//		}
+//	case entity.FieldTypeBinaryVector:
+//		if metricType == entity.IP || metricType == entity.L2 {
+//			return nil, fmt.Errorf("Binary vector does not support metric type %s", metricType)
+//		}
+//	}
+//
+//	// 2. Request milvus service
+//	reqs := splitSearchRequest(coll.Schema, partitions, expr, outputFields, vectors, vectorField, metricType, topK, sp)
+//	if len(reqs) == 0 {
+//		return nil, errors.New("empty request generated")
+//	}
+//	wg := &sync.WaitGroup{}
+//	wg.Add(len(reqs))
+//	var batchErr error
+//	sr := make([]SearchResult, 0, len(vectors))
+//	mut := sync.Mutex{}
+//	for _, req := range reqs {
+//		go func(req *server.SearchRequest) {
+//			defer wg.Done()
+//			req.GuaranteeTimestamp = 1
+//			resp, err := c.service.Search(ctx, req)
+//			if err != nil {
+//				batchErr = err
+//				return
+//			}
+//			if err := handleRespStatus(resp.GetStatus()); err != nil {
+//				batchErr = err
+//				return
+//			}
+//			// 3. parse result into result
+//			results := resp.GetResults()
+//			offset := 0
+//			fieldDataList := results.GetFieldsData()
+//			for i := 0; i < int(results.GetNumQueries()); i++ {
+//
+//				rc := int(results.GetTopks()[i]) // result entry count for current query
+//				entry := SearchResult{
+//					ResultCount: rc,
+//					Scores:      results.GetScores()[offset : offset+rc],
+//				}
+//				entry.IDs, entry.Err = entity.IDColumns(results.GetIds(), offset, offset+rc)
+//				if entry.Err != nil {
+//					offset += rc
+//					continue
+//				}
+//				entry.Fields = make([]entity.Column, 0, len(fieldDataList))
+//				for _, fieldData := range fieldDataList {
+//					column, err := entity.FieldDataColumn(fieldData, offset, offset+rc)
+//					if err != nil {
+//						entry.Err = err
+//						continue
+//					}
+//					entry.Fields = append(entry.Fields, column)
+//				}
+//				mut.Lock()
+//				sr = append(sr, entry)
+//				mut.Unlock()
+//				offset += rc
+//			}
+//		}(req)
+//	}
+//	wg.Wait()
+//	if batchErr != nil {
+//		return []SearchResult{}, batchErr
+//	}
+//	return sr, nil
+//
+//}
+
 //Search with bool expression
 func (c *grpcClient) Search(ctx context.Context, collName string, partitions []string,
 	expr string, outputFields []string, vectors []entity.Vector, vectorField string, metricType entity.MetricType, topK int, sp entity.SearchParam) ([]SearchResult, error) {
@@ -290,6 +400,7 @@ func (c *grpcClient) Search(ctx context.Context, collName string, partitions []s
 	for _, req := range reqs {
 		go func(req *server.SearchRequest) {
 			defer wg.Done()
+			req.GuaranteeTimestamp = 1
 			resp, err := c.service.Search(ctx, req)
 			if err != nil {
 				batchErr = err
