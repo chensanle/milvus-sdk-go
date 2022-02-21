@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"github.com/panjf2000/ants/v2"
+	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +17,17 @@ import (
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 )
+
+func httpGet() {
+	resp, err := http.Get("https://baidu.com")
+	if err != nil {
+		panic(err)
+
+	}
+	defer resp.Body.Close()
+	s, err := ioutil.ReadAll(resp.Body)
+	fmt.Printf(string(s))
+}
 
 func generateFloatVector(num, dim int) [][]float32 {
 	r := make([][]float32, 0, num)
@@ -28,75 +42,42 @@ func generateFloatVector(num, dim int) [][]float32 {
 }
 
 func for1m(c client.Client) {
-	vectorss := generateFloatVector(10, 128)
+	vectorss := generateFloatVector(20000, 768) // 768 128
+	log.Println("new vectors, len: ", len(vectorss))
 
-	sp1, err := entity.NewIndexIvfSQ8SearchParam(10)
+	sp1, err := entity.NewIndexIvfPQSearchParam(5)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, vec := range vectorss {
-		start := time.Now()
-		rspp, err := c.Search(context.Background(), "ann_1m_sq8",
-			[]string{}, "", []string{}, []entity.Vector{entity.FloatVector(vec)},
-			"embedding", entity.L2, 10000, sp1,
-		)
+	log.Println("new pool.")
+	pool, _ := ants.NewPool(1)
 
-		if err != nil {
-			log.Fatal("failed to search collection:", err.Error())
-		}
-		log.Println("search with index time elapsed:", time.Since(start).Milliseconds(), len(rspp))
+	for i, vec := range vectorss {
+		curI := i
+		curVec := vec
+		pool.Submit(func() {
+			start := time.Now() // ann_1m_sq8 moment
+			rspp, err := c.Search(context.Background(), "moment",
+				[]string{}, "", []string{}, []entity.Vector{entity.FloatVector(curVec)},
+				"embedding", entity.IP, 3000, sp1)
+
+			if err != nil {
+				log.Println("fail to search collection:", err.Error())
+			}
+			log.Println(curI, ": search with index time elapsed:", time.Since(start), len(rspp))
+		})
 	}
-}
-
-func String2Int(strArr []float64) string {
-	res := ""
-
-	for _, val := range strArr {
-		res += fmt.Sprintf("%v,", val)
-	}
-
-	return res
-}
-func forMovie(c client.Client) {
-	testVectorDim := 128
-	vectorss := generateFloatVector(1, testVectorDim)
-	for _, vec := range vectorss {
-		start := time.Now()
-
-		vector := entity.FloatVector(vec)
-		sp, _ := entity.NewIndexFlatSearchParam(0)
-		sr, err := c.Search(context.Background(), "gosdk_index_example", []string{}, "Year > 1990", []string{"ID"}, []entity.Vector{vector}, "Vector",
-			entity.L2, 10, sp)
-		if err != nil {
-			log.Fatal("fail to search collection:", err.Error())
-		}
-		if err != nil {
-			log.Fatal("fail to search collection:", err.Error())
-		}
-		log.Println("search with index time elapsed:", time.Since(start), len(sr))
-	}
-}
-
-func insert(c client.Client, collectionName string, uid, momentId int64, vectors []float32, version string) error {
-	uIdC := entity.NewColumnInt64("uid", []int64{uid})
-	momentIdC := entity.NewColumnInt64("moment_id", []int64{momentId})
-
-	//versionC := entity.NewColumnString("version", []string{version})
-	vectorC := entity.NewColumnFloatVector("embedding", len(vectors), [][]float32{vectors})
-	updateC := entity.NewColumnInt64("update_time", []int64{time.Now().Unix()})
-
-	// insert into default partition
-	_, err := c.Insert(context.Background(), collectionName, "", momentIdC, vectorC, uIdC, updateC)
-	if err != nil {
-		return err
-	}
-	return nil
+	time.Sleep(1 * time.Second)
+	pool.Tune(0)
+	log.Println("all conpleted!")
 }
 
 func main() {
 	// Milvus instance proxy address, may verify in your env/settings
-	milvusAddr := `milvus.venus-dev.qingteng-inc.com:9081`
+	milvusAddr := `milvus.milvus.svc:19530`
+	// milvusAddr = `47.101.72.240:8003`
+	log.Println("start conn: ")
 
 	// setup context for client creation, use 2 seconds here
 	ctx := context.Background()
@@ -110,6 +91,7 @@ func main() {
 	}
 	// in a main func, remember to close the client
 	defer c.Close()
+	log.Println("get conn.")
 
 	for1m(c)
 	return
@@ -129,7 +111,7 @@ func main() {
 	// define collection schema, see film.csv
 	schema := &entity.Schema{
 		CollectionName: collectionName,
-		Description:    "this is the example collection for insert and search",
+		Description:    "this is the example collection for inser and search",
 		AutoID:         false,
 		Fields: []*entity.Field{
 			{
@@ -254,7 +236,7 @@ func main() {
 	log.Println("search with index time elapsed:", time.Since(start))
 
 	// clean up
-	_ = c.DropCollection(ctx, collectionName)
+	//_ = c.DropCollection(ctx, collectionName)
 }
 
 type film struct {

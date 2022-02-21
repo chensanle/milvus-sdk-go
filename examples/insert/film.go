@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 	"log"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -151,4 +155,54 @@ func SearchFilm(c client.Client) {
 			fmt.Printf("file id: %d title: %s scores: %f\n", id, title, result.Scores[i])
 		}
 	}
+}
+
+func loadFilmCSV() ([]film, error) {
+	f, err := os.Open("../films.csv") // assume you are in examples/insert folder, if not, please change the path
+	if err != nil {
+		return []film{}, err
+	}
+	r := csv.NewReader(f)
+	raw, err := r.ReadAll()
+	if err != nil {
+		return []film{}, err
+	}
+	films := make([]film, 0, len(raw))
+	for _, line := range raw {
+		if len(line) < 4 { // insuffcient column
+			continue
+		}
+		fi := film{}
+		// ID
+		v, err := strconv.ParseInt(line[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		fi.ID = v
+		// Title
+		fi.Title = line[1]
+		// Year
+		v, err = strconv.ParseInt(line[2], 10, 64)
+		if err != nil {
+			continue
+		}
+		fi.Year = int32(v)
+		// Vector
+		vectorStr := strings.ReplaceAll(line[3], "[", "")
+		vectorStr = strings.ReplaceAll(vectorStr, "]", "")
+		parts := strings.Split(vectorStr, ",")
+		if len(parts) != 8 { // dim must be 8
+			continue
+		}
+		for idx, part := range parts {
+			part = strings.TrimSpace(part)
+			v, err := strconv.ParseFloat(part, 32)
+			if err != nil {
+				continue
+			}
+			fi.Vector[idx] = float32(v)
+		}
+		films = append(films, fi)
+	}
+	return films, nil
 }
