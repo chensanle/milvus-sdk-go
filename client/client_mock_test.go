@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chensanle/milvus-sdk-go/v2/entity"
+	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/common"
+	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/server"
 	"github.com/golang/protobuf/proto"
-	"github.com/milvus-io/milvus-sdk-go/v2/entity"
-	"github.com/milvus-io/milvus-sdk-go/v2/internal/proto/common"
-	"github.com/milvus-io/milvus-sdk-go/v2/internal/proto/server"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"

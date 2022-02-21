@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/milvus-io/milvus-sdk-go/v2/entity"
+	"github.com/chensanle/milvus-sdk-go/v2/entity"
 )
 
 var r *rand.Rand = nil

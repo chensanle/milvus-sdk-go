@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/milvus-io/milvus-sdk-go/v2/client"
-	"github.com/milvus-io/milvus-sdk-go/v2/entity"
+	"github.com/chensanle/milvus-sdk-go/v2/client"
+	"github.com/chensanle/milvus-sdk-go/v2/entity"
 )
 
 func main() {
