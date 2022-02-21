@@ -290,6 +290,7 @@ func (c *grpcClient) Search(ctx context.Context, collName string, partitions []s
 	for _, req := range reqs {
 		go func(req *server.SearchRequest) {
 			defer wg.Done()
+			req.GuaranteeTimestamp = 1
 			resp, err := c.service.Search(ctx, req)
 			if err != nil {
 				batchErr = err
