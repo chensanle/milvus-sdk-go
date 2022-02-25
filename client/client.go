@@ -14,6 +14,7 @@ package client
 
 import (
 	"context"
+	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/server"
 	"time"
 
 	"github.com/chensanle/milvus-sdk-go/v2/entity"
@@ -31,6 +32,7 @@ type Client interface {
 	// Close close the remaining connection resources
 	Close() error
 
+	Inner() server.MilvusServiceClient
 	// -- collection --
 
 	// ListCollections list collections from connection

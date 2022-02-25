@@ -59,6 +59,10 @@ func (c *grpcClient) Close() error {
 	return nil
 }
 
+func (c *grpcClient) Inner() server.MilvusServiceClient {
+	return c.service
+}
+
 // handles response status
 // if status is nil returns ErrStatusNil
 // if status.ErrorCode is common.ErrorCode_Success, returns nil
