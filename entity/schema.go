@@ -12,8 +12,8 @@
 package entity
 
 import (
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/common"
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/schema"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/common"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/schema"
 )
 
 const (

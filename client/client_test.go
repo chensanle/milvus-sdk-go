@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/common"
 	"github.com/chensanle/milvus-sdk-go/v2/entity"
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/common"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 )

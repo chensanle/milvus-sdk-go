@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/common"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/server"
+	"github.com/chensanle/milvus-sdk-go/v2/core/utils/tso"
 	"github.com/chensanle/milvus-sdk-go/v2/entity"
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/common"
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/server"
-	"github.com/chensanle/milvus-sdk-go/v2/internal/utils/tso"
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 )

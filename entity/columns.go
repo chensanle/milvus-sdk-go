@@ -16,7 +16,7 @@ import (
 	"errors"
 	"math"
 
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/schema"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/schema"
 )
 
 //go:generate go run gen/gen.go

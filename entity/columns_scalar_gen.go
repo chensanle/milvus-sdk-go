@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/schema"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/schema"
 )
 
 // ColumnBool generated columns type for Bool

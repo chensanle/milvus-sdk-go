@@ -6,7 +6,7 @@ package entity
 import (
 	"fmt"
 
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/schema"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/schema"
 )
 
 // ColumnBinaryVector generated columns type for BinaryVector

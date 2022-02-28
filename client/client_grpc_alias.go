@@ -19,7 +19,7 @@ package client
 import (
 	"context"
 
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/server"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/server"
 )
 
 // CreateAlias creates an alias for collection

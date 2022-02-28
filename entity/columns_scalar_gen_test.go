@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/chensanle/milvus-sdk-go/v2/internal/proto/schema"
+	"github.com/chensanle/milvus-sdk-go/v2/core/proto/schema"
 	"github.com/stretchr/testify/assert"
 )
 
